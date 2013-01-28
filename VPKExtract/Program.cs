@@ -46,8 +46,13 @@ namespace VPKExtract
 		{
 			using (var inputStream = GetInputStream(vpkDirFileName, node))
 			{
-				var fileName = path.Split('/').Last();
-				using (var fsout = File.OpenWrite(fileName))
+				var pathPieces = path.Split('/');
+				var directory = pathPieces.Take(pathPieces.Count() - 1);
+				var fileName = pathPieces.Last();
+
+				EnsureDirectoryExists(Path.Combine(directory.ToArray()));
+
+				using (var fsout = File.OpenWrite(Path.Combine(pathPieces)))
 				{
 					var buffer = new byte[1024];
 					int amtToRead = (int)node.EntryLength;
@@ -59,6 +64,14 @@ namespace VPKExtract
 						amtToRead -= read;
 					}
 				}
+			}
+		}
+
+		static void EnsureDirectoryExists(string directory)
+		{
+			if (!Directory.Exists(directory))
+			{
+				Directory.CreateDirectory(directory);
 			}
 		}
 
