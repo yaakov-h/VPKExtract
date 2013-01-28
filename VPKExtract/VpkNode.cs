@@ -15,8 +15,15 @@ namespace VPKExtract
 		{
 		}
 
+		public VpkNode(VpkNode parent)
+		{
+			this.parent = parent;
+		}
+
 		const uint Terminator = 0xFFFF;
 		public const uint DirectoryArchiveIndex = 0x7FFF;
+
+		readonly VpkNode parent;
 
 		internal void Load(BinaryReader reader)
 		{
@@ -55,6 +62,28 @@ namespace VPKExtract
 			if (PreloadBytes > 0)
 			{
 				this.PreloadData = reader.ReadBytes(PreloadBytes);
+			}
+		}
+
+		public VpkNode Parent
+		{
+			get { return parent; }
+		}
+
+		public string FilePath
+		{
+			get
+			{
+				if (parent != null && parent.Parent != null)
+				{
+					var fileName = Name;
+					var path = parent.Name;
+					var extension = parent.Parent.Name;
+
+					return string.Format("{0}/{1}.{2}", path, fileName, extension);
+				}
+
+				return null;
 			}
 		}
 
@@ -100,6 +129,10 @@ namespace VPKExtract
 			private set;
 		}
 
-		public VpkNode[] Children { get; internal set; }
+		public VpkNode[] Children
+		{
+			get;
+			internal set;
+		}
 	}
 }

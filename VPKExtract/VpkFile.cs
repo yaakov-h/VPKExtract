@@ -76,33 +76,33 @@ namespace VPKExtract
 				if (!string.IsNullOrEmpty(newNode.Name))
 				{
 					nodes.Add(newNode);
-					newNode.Children = LoadNodeChildren(reader);
+					newNode.Children = LoadNodeChildren(reader, newNode);
 				}
 			}
 
 			return nodes;
 		}
 
-		static VpkNode[] LoadNodeChildren(BinaryReader reader)
+		static VpkNode[] LoadNodeChildren(BinaryReader reader, VpkNode parent)
 		{
 			var nodes = new List<VpkNode>();
 
 			VpkNode newNode = null;
 			while (newNode == null || !string.IsNullOrEmpty(newNode.Name))
 			{
-				newNode = new VpkNode();
+				newNode = new VpkNode(parent);
 				newNode.Load(reader);
 				if (!string.IsNullOrEmpty(newNode.Name))
 				{
 					nodes.Add(newNode);
-					newNode.Children = LoadNodeFileChildren(reader);
+					newNode.Children = LoadNodeFileChildren(reader, newNode);
 				}
 			}
 
 			return nodes.ToArray();
 		}
 
-		static VpkNode[] LoadNodeFileChildren(BinaryReader reader)
+		static VpkNode[] LoadNodeFileChildren(BinaryReader reader, VpkNode parent)
 		{
 			var nodes = new List<VpkNode>();
 
@@ -110,7 +110,7 @@ namespace VPKExtract
 
 			while (newNode == null || !string.IsNullOrEmpty(newNode.Name))
 			{
-				newNode = new VpkNode();
+				newNode = new VpkNode(parent);
 				newNode.LoadFileInfo(reader);
 				if (!string.IsNullOrEmpty(newNode.Name))
 				{
@@ -166,9 +166,18 @@ namespace VPKExtract
 			var files = from node in nodes
 						from dir in node.Children
 						from fileEntry in dir.Children
-						where string.Format("{0}/{1}.{2}", dir.Name, fileEntry.Name, node.Name) == name
+						where fileEntry.FilePath == name
 						select fileEntry;
 			return files.SingleOrDefault();
+		}
+
+		public VpkNode[] GetAllFilesInDirectoryAndSubdirectories(string name)
+		{
+			var files = from node in nodes
+						from dir in node.Children
+						where dir.Name == name || dir.Name.StartsWith(name + "/")
+						select dir.Children;
+			return files.SelectMany(x => x).ToArray();
 		}
 
 		public void Dispose()

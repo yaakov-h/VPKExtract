@@ -11,8 +11,38 @@ namespace VPKExtract
 	{
 		static void Main(string[] args)
 		{
+			if (args.Count() < 2)
+			{
+				PrintUsage();
+				return;
+			}
+
 			var vpkDirFileName = args.First();
 			var filesToExtract = args.Skip(1);
+
+			if (filesToExtract.FirstOrDefault() == "-l")
+			{
+				if (args.Count() != 3)
+				{
+					PrintUsage();
+					return;
+				}
+
+				var files = new List<string>();
+				using (var listReader = File.OpenText(args[2]))
+				{
+					string line;
+					while ((line = listReader.ReadLine()) != null)
+					{
+						if (!string.IsNullOrWhiteSpace(line))
+						{
+							files.Add(line);
+						}
+					}
+				}
+
+				filesToExtract = files.AsEnumerable();
+			}
 
 			using (var vpk = new VpkFile(vpkDirFileName))
 			{
@@ -24,29 +54,45 @@ namespace VPKExtract
 					var fileNode = vpk.GetFile(fileToExtract);
 					if (fileNode == null)
 					{
-						Console.WriteLine("Entry not found: {0}", fileToExtract);
-					}
-					else
-					{
-						if (fileNode.ArchiveIndex == VpkNode.DirectoryArchiveIndex)
+						var dirContents = vpk.GetAllFilesInDirectoryAndSubdirectories(fileToExtract);
+						if (dirContents.Count() == 0)
 						{
-							Console.WriteLine("Found entry: {0}", fileToExtract);
+							Console.WriteLine("Entry not found: {0}", fileToExtract);
 						}
 						else
 						{
-							Console.WriteLine("Found entry: {0} in VPK {1}", fileToExtract, fileNode.ArchiveIndex);
+							foreach (var node in dirContents)
+							{
+								DoExtractFile(vpkDirFileName, node);
+							}
 						}
-						ExtractFile(vpkDirFileName, fileNode, fileToExtract);
+					}
+					else
+					{
+						DoExtractFile(vpkDirFileName, fileNode);
 					}
 				}
 			}
 		}
 
-		static void ExtractFile(string vpkDirFileName, VpkNode node, string path)
+		static void DoExtractFile(string vpkDirFileName, VpkNode node)
+		{
+			if (node.ArchiveIndex == VpkNode.DirectoryArchiveIndex)
+			{
+				Console.WriteLine("Found entry: {0}", node.FilePath);
+			}
+			else
+			{
+				Console.WriteLine("Found entry: {0} in VPK {1}", node.FilePath, node.ArchiveIndex);
+			}
+			ExtractFile(vpkDirFileName, node);
+		}
+
+		static void ExtractFile(string vpkDirFileName, VpkNode node)
 		{
 			using (var inputStream = GetInputStream(vpkDirFileName, node))
 			{
-				var pathPieces = path.Split('/');
+				var pathPieces = node.FilePath.Split('/');
 				var directory = pathPieces.Take(pathPieces.Count() - 1);
 				var fileName = pathPieces.Last();
 
