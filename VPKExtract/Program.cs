@@ -11,12 +11,13 @@ namespace VPKExtract
 	{
 		static void Main(string[] args)
 		{
-			var vpkFilename = args.First();
+			var vpkDirFileName = args.First();
 			var filesToExtract = args.Skip(1);
 
-			using (var vpk = new VpkFile(vpkFilename))
+			using (var vpk = new VpkFile(vpkDirFileName))
 			{
 				vpk.Open();
+				Console.WriteLine("Got VPK version {0}", vpk.Version);
 
 				foreach (var fileToExtract in filesToExtract)
 				{
@@ -27,22 +28,24 @@ namespace VPKExtract
 					}
 					else
 					{
-						Console.WriteLine("Found entry: {0} in VPK {1}", fileToExtract, fileNode.ArchiveIndex);
-						ExtractFile(vpkFilename, fileNode, fileToExtract);
+						if (fileNode.ArchiveIndex == VpkNode.DirectoryArchiveIndex)
+						{
+							Console.WriteLine("Found entry: {0}", fileToExtract);
+						}
+						else
+						{
+							Console.WriteLine("Found entry: {0} in VPK {1}", fileToExtract, fileNode.ArchiveIndex);
+						}
+						ExtractFile(vpkDirFileName, fileNode, fileToExtract);
 					}
 				}
 			}
 		}
 
-		static void ExtractFile(string vpkFileName, VpkNode node, string path)
+		static void ExtractFile(string vpkDirFileName, VpkNode node, string path)
 		{
-
-			var prefix = new string(Enumerable.Repeat('0', 3 - node.ArchiveIndex.ToString().Length).ToArray());
-			var dataPakFilename = vpkFileName.Replace("_dir.vpk", "_" + prefix + node.ArchiveIndex + ".vpk");
-			using (var fsin = new FileStream(dataPakFilename, FileMode.Open))
+			using (var inputStream = GetInputStream(vpkDirFileName, node))
 			{
-				fsin.Seek(node.EntryOffset, SeekOrigin.Begin);
-
 				var fileName = path.Split('/').Last();
 				using (var fsout = File.OpenWrite(fileName))
 				{
@@ -50,12 +53,31 @@ namespace VPKExtract
 					int amtToRead = (int)node.EntryLength;
 					int read;
 
-					while ((read = fsin.Read(buffer, 0, buffer.Length)) > 0 && amtToRead > 0)
+					while ((read = inputStream.Read(buffer, 0, buffer.Length)) > 0 && amtToRead > 0)
 					{
 						fsout.Write(buffer, 0, Math.Min(amtToRead, read));
 						amtToRead -= read;
 					}
 				}
+			}
+		}
+
+		static Stream GetInputStream(string vpkDirFileName, VpkNode node)
+		{
+			if (node.EntryLength == 0 && node.PreloadBytes > 0)
+			{
+				return new MemoryStream(node.PreloadData);
+			}
+			else if (node.PreloadBytes == 0)
+			{
+				var prefix = new string(Enumerable.Repeat('0', 3 - node.ArchiveIndex.ToString().Length).ToArray());
+				var dataPakFilename = vpkDirFileName.Replace("_dir.vpk", "_" + prefix + node.ArchiveIndex + ".vpk");
+
+				var fsin = new FileStream(dataPakFilename, FileMode.Open);
+				fsin.Seek(node.EntryOffset, SeekOrigin.Begin);
+				return fsin;
+			} else {
+				throw new NotSupportedException("Unable to get entry data: Both EntryLength and PreloadBytes specified.");
 			}
 		}
 

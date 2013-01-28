@@ -16,6 +16,7 @@ namespace VPKExtract
 		}
 
 		const uint Terminator = 0xFFFF;
+		public const uint DirectoryArchiveIndex = 0x7FFF;
 
 		internal void Load(BinaryReader reader)
 		{
@@ -51,7 +52,7 @@ namespace VPKExtract
 				throw new InvalidDataException("Error: VPK entry did not end with correct terminator");
 			}
 
-			if (PreloadBytes >= 0)
+			if (PreloadBytes > 0)
 			{
 				this.PreloadData = reader.ReadBytes(PreloadBytes);
 			}
